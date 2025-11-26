@@ -86,7 +86,7 @@ class GoogleDriveService {
           uploadedPhoto.id!,
         );
 
-        photoUrl = 'https://lh3.googleusercontent.com/d/${uploadedPhoto.id}';
+        photoUrl = 'https://drive.google.com/uc?export=view&id=${uploadedPhoto.id}';
       }
 
       // Crear archivo HTML con la información
@@ -281,3 +281,4 @@ class GoogleAuthClient extends http.BaseClient {
     return _client.send(request);
   }
 }
+
