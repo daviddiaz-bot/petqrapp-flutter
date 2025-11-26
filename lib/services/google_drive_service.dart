@@ -8,18 +8,30 @@ class GoogleDriveService {
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: [
       'email',
-      drive.DriveApi.driveFileScope,
+      'https://www.googleapis.com/auth/drive.file',
+      'https://www.googleapis.com/auth/drive.appdata',
     ],
   );
 
   GoogleSignInAccount? _currentUser;
+  String? _userEmail;
 
   Future<bool> signIn() async {
     try {
+      print('🔵 Intentando login con Google...');
       _currentUser = await _googleSignIn.signIn();
-      return _currentUser != null;
+      
+      if (_currentUser != null) {
+        _userEmail = _currentUser!.email;
+        print('🟢 Login exitoso: $_userEmail');
+        return true;
+      }
+      
+      print('🔴 Login cancelado por el usuario');
+      return false;
     } catch (error) {
-      print('Error signing in: $error');
+      print('🔴 Error en login: $error');
+      print('🔴 Tipo de error: ${error.runtimeType}');
       return false;
     }
   }
@@ -27,9 +39,11 @@ class GoogleDriveService {
   Future<void> signOut() async {
     await _googleSignIn.signOut();
     _currentUser = null;
+    _userEmail = null;
   }
 
   bool get isSignedIn => _currentUser != null;
+  String? get userEmail => _userEmail;
 
   Future<String?> uploadPetData({
     required String petId,
@@ -38,27 +52,37 @@ class GoogleDriveService {
     File? photoFile,
   }) async {
     if (_currentUser == null) {
-      throw Exception('Usuario no autenticado');
+      print('🔴 ERROR: Usuario no autenticado');
+      throw Exception('Usuario no autenticado. Por favor inicia sesión primero.');
     }
 
     try {
+      print('🔵 Iniciando upload a Drive...');
+      print('🔵 Usuario: $_userEmail');
+      
       final authHeaders = await _currentUser!.authHeaders;
+      print('🔵 Headers obtenidos: ${authHeaders.keys.join(', ')}');
+      
       final authenticateClient = GoogleAuthClient(authHeaders);
       final driveApi = drive.DriveApi(authenticateClient);
 
-      // Crear carpeta "PetQRApp" si no existe
+      // Crear carpeta "PetQRApp" en el Drive del usuario
+      print('🔵 Buscando carpeta PetQRApp...');
       final folderQuery = "name='PetQRApp' and mimeType='application/vnd.google-apps.folder' and trashed=false";
       final folderList = await driveApi.files.list(q: folderQuery);
       
       String? folderId;
       if (folderList.files != null && folderList.files!.isNotEmpty) {
         folderId = folderList.files!.first.id;
+        print('🟢 Carpeta encontrada: $folderId');
       } else {
+        print('🔵 Creando carpeta PetQRApp...');
         final folder = drive.File()
           ..name = 'PetQRApp'
           ..mimeType = 'application/vnd.google-apps.folder';
         final createdFolder = await driveApi.files.create(folder);
         folderId = createdFolder.id;
+        print('🟢 Carpeta creada: $folderId');
       }
 
       // Subir la foto y obtener URL pública

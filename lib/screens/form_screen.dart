@@ -4,7 +4,7 @@ import 'package:uuid/uuid.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/pet.dart';
 import '../services/pet_storage_service.dart';
-import '../services/telegraph_service.dart';
+import '../services/google_drive_service.dart';
 import '../utils/validators.dart';
 import '../utils/app_colors.dart';
 import 'qr_screen.dart';
@@ -19,7 +19,7 @@ class FormScreen extends StatefulWidget {
 class _FormScreenState extends State<FormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _storageService = PetStorageService();
-  final _telegraphService = TelegraphService();
+  final _driveService = GoogleDriveService();
   final _imagePicker = ImagePicker();
   
   final _nameController = TextEditingController();
@@ -76,53 +76,124 @@ class _FormScreenState extends State<FormScreen> {
 
     try {
       final petId = const Uuid().v4();
-      String? webPageUrl;
+      String? driveUrl;
 
-      // Subir a Telegraph (servicio gratuito sin autenticación)
+      // Subir a Google Drive del usuario
       try {
-        print('🔵 Subiendo a Telegraph...');
-        webPageUrl = await _telegraphService.uploadPetPage(
-          petId: petId,
-          petName: _nameController.text.trim(),
-          petData: {
-            'name': _nameController.text.trim(),
-            'breed': _breedController.text.trim(),
-            'age': _ageController.text.trim(),
-            'color': _colorController.text.trim(),
-            'ownerName': _ownerNameController.text.trim(),
-            'ownerPhone': _ownerPhoneController.text.trim(),
-            'ownerAddress': _ownerAddressController.text.trim(),
-          },
-          photoFile: _selectedImage,
+        print('🔵 Iniciando sesión en Google Drive...');
+        
+        // Mostrar diálogo de loading
+        if (!mounted) return;
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Conectando con tu Google Drive...'),
+                SizedBox(height: 8),
+                Text(
+                  'Por favor acepta los permisos',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
         );
         
-        if (webPageUrl != null && webPageUrl.isNotEmpty) {
-          print('🟢 URL obtenida: $webPageUrl');
+        final signedIn = await _driveService.signIn();
+        
+        // Cerrar diálogo
+        if (!mounted) return;
+        Navigator.pop(context);
+        
+        if (signedIn) {
+          print('🟢 Login exitoso: ${_driveService.userEmail}');
+          
+          // Mostrar progreso de subida
+          if (!mounted) return;
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => AlertDialog(
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Subiendo a tu Drive...'),
+                  SizedBox(height: 8),
+                  Text(
+                    'Creando página web de ${_nameController.text}',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+          );
+          
+          driveUrl = await _driveService.uploadPetData(
+            petId: petId,
+            petName: _nameController.text.trim(),
+            petData: {
+              'name': _nameController.text.trim(),
+              'breed': _breedController.text.trim(),
+              'age': _ageController.text.trim(),
+              'color': _colorController.text.trim(),
+              'ownerName': _ownerNameController.text.trim(),
+              'ownerPhone': _ownerPhoneController.text.trim(),
+              'ownerAddress': _ownerAddressController.text.trim(),
+            },
+            photoFile: _selectedImage,
+          );
+          
+          // Cerrar diálogo de progreso
+          if (!mounted) return;
+          Navigator.pop(context);
+          
+          if (driveUrl != null && driveUrl.isNotEmpty) {
+            print('🟢 URL de Drive obtenida: $driveUrl');
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('✅ Guardado en tu Google Drive'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+        } else {
+          print('🔴 Login cancelado o falló');
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('✅ Página web creada con éxito'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 2),
+              content: Text('❌ No se pudo conectar con Google Drive'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 3),
             ),
           );
-        } else {
-          print('🔴 No se obtuvo URL');
         }
       } catch (error) {
-        print('🔴 Error en Telegraph: $error');
+        print('🔴 Error en Drive: $error');
+        // Cerrar cualquier diálogo abierto
+        if (mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('⚠️ Guardado solo localmente'),
+            content: Text('⚠️ Error: ${error.toString()}'),
             backgroundColor: Colors.orange,
-            duration: Duration(seconds: 3),
+            duration: Duration(seconds: 4),
           ),
         );
       }
 
-      // Crear mascota con URL de la página web
-      print('🔵 Creando mascota con webPageUrl: $webPageUrl');
+      // Crear mascota con URL de Google Drive
+      print('🔵 Creando mascota con driveUrl: $driveUrl');
       final pet = Pet(
         id: petId,
         name: _nameController.text.trim(),
@@ -133,7 +204,7 @@ class _FormScreenState extends State<FormScreen> {
         ownerPhone: _ownerPhoneController.text.trim(),
         ownerAddress: _ownerAddressController.text.trim(),
         photoPath: _selectedImage?.path,
-        driveUrl: webPageUrl,  // Ahora es URL de Telegraph
+        driveUrl: driveUrl,  // URL del HTML en Google Drive del usuario
         registeredAt: DateTime.now(),
       );
 
