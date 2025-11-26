@@ -46,7 +46,7 @@ class GoogleDriveService {
       final authenticateClient = GoogleAuthClient(authHeaders);
       final driveApi = drive.DriveApi(authenticateClient);
 
-      // Crear carpeta "PetQRApp" en Drive si no existe
+      // Crear carpeta "PetQRApp" si no existe
       final folderQuery = "name='PetQRApp' and mimeType='application/vnd.google-apps.folder' and trashed=false";
       final folderList = await driveApi.files.list(q: folderQuery);
       
@@ -54,7 +54,6 @@ class GoogleDriveService {
       if (folderList.files != null && folderList.files!.isNotEmpty) {
         folderId = folderList.files!.first.id;
       } else {
-        // Crear carpeta
         final folder = drive.File()
           ..name = 'PetQRApp'
           ..mimeType = 'application/vnd.google-apps.folder';
@@ -62,21 +61,54 @@ class GoogleDriveService {
         folderId = createdFolder.id;
       }
 
-      // Convertir foto a base64 si existe
-      String? photoBase64;
+      // Subir la foto y obtener URL pública
+      String? photoId;
+      if (photoFile != null) {
+        final photoMetadata = drive.File()
+          ..name = 'photo_${petId}.jpg'
+          ..parents = [folderId!];
+        
+        final photoMedia = drive.Media(
+          photoFile.openRead(),
+          photoFile.lengthSync(),
+        );
+        
+        final uploadedPhoto = await driveApi.files.create(
+          photoMetadata,
+          uploadMedia: photoMedia,
+        );
+
+        // Hacer público
+        await driveApi.permissions.create(
+          drive.Permission()
+            ..type = 'anyone'
+            ..role = 'reader',
+          uploadedPhoto.id!,
+        );
+        
+        photoId = uploadedPhoto.id;
+        print('Photo uploaded: $photoId');
+      }
+
+      // Convertir foto a base64 para respaldo
+      String photoBase64 = '';
       if (photoFile != null) {
         final bytes = await photoFile.readAsBytes();
         photoBase64 = base64Encode(bytes);
-        print('Photo converted to base64 (${bytes.length} bytes)');
       }
 
-      // Crear archivo HTML con la información
+      // Crear HTML con MÚLTIPLES URLs de foto para máxima compatibilidad
+      final photoUrl1 = photoId != null ? 'https://drive.google.com/uc?export=view&id=$photoId' : '';
+      final photoUrl2 = photoId != null ? 'https://drive.usercontent.google.com/download?id=$photoId&export=view' : '';
+      final photoUrl3 = photoId != null ? 'https://lh3.googleusercontent.com/d/$photoId' : '';
+      
       final htmlContent = '''
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <title>🐾 ${petData['name']}</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -101,21 +133,28 @@ class GoogleDriveService {
             text-align: center;
         }
         .header h1 { font-size: 32px; margin-bottom: 5px; }
-        .header p { opacity: 0.9; }
+        .header p { opacity: 0.9; font-size: 16px; }
+        .photo-container {
+            width: 100%;
+            background: #f5f5f5;
+            position: relative;
+            overflow: hidden;
+        }
         .photo {
             width: 100%;
+            height: auto;
             max-height: 400px;
             object-fit: cover;
             display: block;
         }
-        .no-photo {
+        .photo-placeholder {
             width: 100%;
-            height: 200px;
-            background: #f0f0f0;
+            height: 250px;
+            background: linear-gradient(135deg, #f0f0f0 0%, #e0e0e0 100%);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 48px;
+            font-size: 64px;
         }
         .info {
             padding: 30px 20px;
@@ -148,6 +187,19 @@ class GoogleDriveService {
             font-weight: 500;
         }
         .icon { margin-right: 8px; }
+        .contact-btn {
+            display: block;
+            background: #4CAF50;
+            color: white;
+            padding: 18px;
+            border-radius: 30px;
+            text-decoration: none;
+            text-align: center;
+            margin: 20px 0;
+            font-weight: 600;
+            font-size: 18px;
+            box-shadow: 0 4px 15px rgba(76,175,80,0.3);
+        }
         .footer {
             text-align: center;
             padding: 20px;
@@ -155,30 +207,35 @@ class GoogleDriveService {
             font-size: 12px;
             border-top: 1px solid #eee;
         }
-        .contact-btn {
-            display: inline-block;
-            background: #4CAF50;
-            color: white;
-            padding: 15px 40px;
-            border-radius: 30px;
-            text-decoration: none;
-            margin-top: 15px;
-            font-weight: 600;
-            font-size: 16px;
-            box-shadow: 0 4px 15px rgba(76,175,80,0.3);
-        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>🐾 ${petData['name']}</h1>
-            <p>Información de Mascota</p>
+            <p>Información de Mascota Registrada</p>
         </div>
-        ${photoBase64 != null ? '<img src="data:image/jpeg;base64,$photoBase64" class="photo" alt="${petData['name']}">' : '<div class="no-photo">📷</div>'}
+        
+        <div class="photo-container">
+            ${photoBase64.isNotEmpty ? '''
+            <img 
+                id="petPhoto" 
+                class="photo" 
+                src="data:image/jpeg;base64,$photoBase64"
+                alt="${petData['name']}"
+                onerror="this.style.display='none'; document.getElementById('photoPlaceholder').style.display='flex';"
+            >
+            <div id="photoPlaceholder" class="photo-placeholder" style="display:none;">
+                📷
+            </div>
+            ''' : '''
+            <div class="photo-placeholder">📷</div>
+            '''}
+        </div>
+        
         <div class="info">
             <div class="section">
-                <div class="section-title">📋 Datos de la Mascota</div>
+                <div class="section-title">📋 Información de la Mascota</div>
                 <div class="field">
                     <div class="field-label">Nombre</div>
                     <div class="field-value"><span class="icon">🐕</span>${petData['name']}</div>
@@ -196,10 +253,11 @@ class GoogleDriveService {
                     <div class="field-value"><span class="icon">🎯</span>${petData['color']}</div>
                 </div>
             </div>
+            
             <div class="section">
-                <div class="section-title">👤 Información del Dueño</div>
+                <div class="section-title">👤 Contacto del Dueño</div>
                 <div class="field">
-                    <div class="field-label">Nombre</div>
+                    <div class="field-label">Nombre del Dueño</div>
                     <div class="field-value"><span class="icon">👤</span>${petData['ownerName']}</div>
                 </div>
                 <div class="field">
@@ -210,31 +268,55 @@ class GoogleDriveService {
                     <div class="field-label">Dirección</div>
                     <div class="field-value"><span class="icon">📍</span>${petData['ownerAddress']}</div>
                 </div>
-                <center>
-                    <a href="tel:${petData['ownerPhone']}" class="contact-btn">
-                        📞 Llamar al Dueño
-                    </a>
-                </center>
             </div>
+            
+            <a href="tel:${petData['ownerPhone']}" class="contact-btn">
+                📞 Llamar al Dueño Ahora
+            </a>
         </div>
+        
         <div class="footer">
-            Generado con PetQRApp 🐾<br>
-            Datos seguros en Google Drive
+            🐾 Generado con PetQRApp<br>
+            Información almacenada en Google Drive
         </div>
     </div>
+    
+    <script>
+        // Intentar cargar foto desde múltiples URLs si base64 falla
+        const photo = document.getElementById('petPhoto');
+        if (photo && !photo.complete) {
+            const urls = [
+                '$photoUrl1',
+                '$photoUrl2',
+                '$photoUrl3'
+            ].filter(url => url);
+            
+            let urlIndex = 0;
+            photo.onerror = function() {
+                urlIndex++;
+                if (urlIndex < urls.length) {
+                    this.src = urls[urlIndex];
+                } else {
+                    this.style.display = 'none';
+                    document.getElementById('photoPlaceholder').style.display = 'flex';
+                }
+            };
+        }
+    </script>
 </body>
 </html>
 ''';
 
-      // Subir archivo HTML
+      // Subir HTML
       final htmlMetadata = drive.File()
-        ..name = '$petName-$petId.html'
+        ..name = 'pet_${petName}_${petId}.html'
         ..parents = [folderId!]
         ..mimeType = 'text/html';
       
+      final htmlBytes = utf8.encode(htmlContent);
       final htmlMedia = drive.Media(
-        Stream.value(htmlContent.codeUnits),
-        htmlContent.length,
+        Stream.value(htmlBytes),
+        htmlBytes.length,
       );
 
       final uploadedHtml = await driveApi.files.create(
@@ -242,7 +324,7 @@ class GoogleDriveService {
         uploadMedia: htmlMedia,
       );
 
-      // Hacer público el archivo HTML
+      // Hacer público el HTML
       await driveApi.permissions.create(
         drive.Permission()
           ..type = 'anyone'
@@ -250,12 +332,13 @@ class GoogleDriveService {
         uploadedHtml.id!,
       );
 
-      final driveUrl = 'https://drive.google.com/uc?export=view&id=${uploadedHtml.id}';
-      print('HTML uploaded successfully: $driveUrl');
+      // URL que renderiza el HTML directamente
+      final webViewUrl = 'https://drive.google.com/uc?export=download&id=${uploadedHtml.id}';
+      print('✅ Pet page created: $webViewUrl');
       
-      return driveUrl;
+      return webViewUrl;
     } catch (e) {
-      print('Error uploading to Drive: $e');
+      print('❌ Error uploading to Drive: $e');
       return null;
     }
   }
