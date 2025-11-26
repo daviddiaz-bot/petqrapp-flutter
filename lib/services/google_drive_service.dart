@@ -307,11 +307,12 @@ class GoogleDriveService {
 </html>
 ''';
 
-      // Subir HTML
+      // Subir HTML a Drive
       final htmlMetadata = drive.File()
         ..name = 'pet_${petName}_${petId}.html'
         ..parents = [folderId!]
-        ..mimeType = 'text/html';
+        ..mimeType = 'text/html'
+        ..description = 'PetQRApp - Información de $petName';
       
       final htmlBytes = utf8.encode(htmlContent);
       final htmlMedia = drive.Media(
@@ -324,17 +325,24 @@ class GoogleDriveService {
         uploadMedia: htmlMedia,
       );
 
-      // Hacer público el HTML
+      // Hacer público el HTML con permisos de lectura para cualquiera
       await driveApi.permissions.create(
         drive.Permission()
           ..type = 'anyone'
-          ..role = 'reader',
+          ..role = 'reader'
+          ..allowFileDiscovery = false,
         uploadedHtml.id!,
       );
 
-      // URL que renderiza el HTML directamente
-      final webViewUrl = 'https://drive.google.com/uc?export=download&id=${uploadedHtml.id}';
-      print('✅ Pet page created: $webViewUrl');
+      // SOLUCIÓN: Usar htmlpreview.github.io para renderizar HTML de Drive
+      // Esta URL abre el HTML en un visor que soporta renderizado completo
+      final googleDriveRawUrl = 'https://drive.google.com/uc?export=download&id=${uploadedHtml.id}';
+      final webViewUrl = 'https://htmlpreview.github.io/?$googleDriveRawUrl';
+      
+      print('✅ Pet page created:');
+      print('   Drive ID: ${uploadedHtml.id}');
+      print('   Raw URL: $googleDriveRawUrl');
+      print('   Preview URL: $webViewUrl');
       
       return webViewUrl;
     } catch (e) {
