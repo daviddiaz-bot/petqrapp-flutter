@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:convert';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:http/http.dart' as http;
@@ -62,12 +61,32 @@ class GoogleDriveService {
         folderId = createdFolder.id;
       }
 
-      // Convertir foto a base64 si existe
-      String? photoBase64;
+      // Subir foto si existe
+      String? photoUrl;
       if (photoFile != null) {
-        final bytes = await photoFile.readAsBytes();
-        photoBase64 = base64Encode(bytes);
-        print('Photo converted to base64 (${bytes.length} bytes)');
+        final photoMetadata = drive.File()
+          ..name = '$petName-$petId.jpg'
+          ..parents = [folderId!];
+        
+        final photoMedia = drive.Media(
+          photoFile.openRead(),
+          photoFile.lengthSync(),
+        );
+        
+        final uploadedPhoto = await driveApi.files.create(
+          photoMetadata,
+          uploadMedia: photoMedia,
+        );
+
+        // Hacer público el archivo
+        await driveApi.permissions.create(
+          drive.Permission()
+            ..type = 'anyone'
+            ..role = 'reader',
+          uploadedPhoto.id!,
+        );
+
+        photoUrl = 'https://drive.usercontent.google.com/download?id=${uploadedPhoto.id}&export=view';
       }
 
       // Crear archivo HTML con la información
@@ -80,7 +99,7 @@ class GoogleDriveService {
     <title>🐾 ${petData['name']}</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
+        body { 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
@@ -104,18 +123,9 @@ class GoogleDriveService {
         .header p { opacity: 0.9; }
         .photo {
             width: 100%;
-            max-height: 400px;
+            height: 300px;
             object-fit: cover;
-            display: block;
-        }
-        .no-photo {
-            width: 100%;
-            height: 200px;
             background: #f0f0f0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 48px;
         }
         .info {
             padding: 30px 20px;
@@ -159,13 +169,11 @@ class GoogleDriveService {
             display: inline-block;
             background: #4CAF50;
             color: white;
-            padding: 15px 40px;
-            border-radius: 30px;
+            padding: 12px 30px;
+            border-radius: 25px;
             text-decoration: none;
-            margin-top: 15px;
+            margin-top: 10px;
             font-weight: 600;
-            font-size: 16px;
-            box-shadow: 0 4px 15px rgba(76,175,80,0.3);
         }
     </style>
 </head>
@@ -175,7 +183,7 @@ class GoogleDriveService {
             <h1>🐾 ${petData['name']}</h1>
             <p>Información de Mascota</p>
         </div>
-        ${photoBase64 != null ? '<img src="data:image/jpeg;base64,$photoBase64" class="photo" alt="${petData['name']}">' : '<div class="no-photo">📷</div>'}
+        ${photoUrl != null ? '<img src="$photoUrl" class="photo" alt="${petData['name']}">' : ''}
         <div class="info">
             <div class="section">
                 <div class="section-title">📋 Datos de la Mascota</div>
@@ -219,7 +227,7 @@ class GoogleDriveService {
         </div>
         <div class="footer">
             Generado con PetQRApp 🐾<br>
-            Datos seguros en Google Drive
+            Datos almacenados en Google Drive del dueño
         </div>
     </div>
 </body>
@@ -232,17 +240,18 @@ class GoogleDriveService {
         ..parents = [folderId!]
         ..mimeType = 'text/html';
       
+      final htmlBytes = htmlContent.codeUnits;
       final htmlMedia = drive.Media(
-        Stream.value(htmlContent.codeUnits),
-        htmlContent.length,
+        Stream.value(htmlBytes),
+        htmlBytes.length,
       );
-
+      
       final uploadedHtml = await driveApi.files.create(
         htmlMetadata,
         uploadMedia: htmlMedia,
       );
 
-      // Hacer público el archivo HTML
+      // Hacer público el HTML
       await driveApi.permissions.create(
         drive.Permission()
           ..type = 'anyone'
@@ -250,10 +259,9 @@ class GoogleDriveService {
         uploadedHtml.id!,
       );
 
-      final driveUrl = 'https://drive.google.com/file/d/${uploadedHtml.id}/view';
-      print('HTML uploaded successfully: $driveUrl');
+      // Retornar URL para abrir en navegador
+      return 'https://drive.google.com/file/d/${uploadedHtml.id}/view';
       
-      return driveUrl;
     } catch (e) {
       print('Error uploading to Drive: $e');
       return null;
