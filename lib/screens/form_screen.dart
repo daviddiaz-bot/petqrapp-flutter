@@ -80,8 +80,12 @@ class _FormScreenState extends State<FormScreen> {
 
       // Intentar subir a Google Drive (opcional)
       try {
+        print('🔵 Iniciando login en Google Drive...');
         final signedIn = await _driveService.signIn();
+        print('🔵 Login resultado: $signedIn');
+        
         if (signedIn) {
+          print('🔵 Subiendo datos a Drive...');
           driveUrl = await _driveService.uploadPetData(
             petId: petId,
             petName: _nameController.text.trim(),
@@ -96,12 +100,27 @@ class _FormScreenState extends State<FormScreen> {
             },
             photoFile: _selectedImage,
           );
+          print('🟢 URL de Drive obtenida: $driveUrl');
+          
+          if (driveUrl != null && driveUrl.isNotEmpty) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('✅ Guardado en Google Drive'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        } else {
+          print('🔴 No se pudo iniciar sesión en Drive');
         }
       } catch (driveError) {
+        print('🔴 Error en Drive: $driveError');
         // Si falla Drive, continuar sin él
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text('Guardado localmente (Google Drive no disponible)'),
             backgroundColor: Colors.orange,
             duration: Duration(seconds: 3),
@@ -110,6 +129,7 @@ class _FormScreenState extends State<FormScreen> {
       }
 
       // Crear mascota con URL de Drive
+      print('🔵 Creando mascota con driveUrl: $driveUrl');
       final pet = Pet(
         id: petId,
         name: _nameController.text.trim(),
@@ -124,7 +144,10 @@ class _FormScreenState extends State<FormScreen> {
         registeredAt: DateTime.now(),
       );
 
+      print('🔵 Guardando mascota en storage local...');
       await _storageService.savePet(pet);
+      print('🟢 Mascota guardada exitosamente');
+      print('🔵 Pet object: ${pet.toJson()}');
 
       setState(() => _isLoading = false);
 

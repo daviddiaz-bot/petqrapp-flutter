@@ -21,6 +21,24 @@ class _QRScreenState extends State<QRScreen> {
   final GlobalKey _qrKey = GlobalKey();
   bool _isSharing = false;
 
+  @override
+  void initState() {
+    super.initState();
+    // Debug: Verificar qué datos tiene el QR
+    final qrData = widget.pet.toQRData();
+    print('🔵 QR Screen - Pet ID: ${widget.pet.id}');
+    print('🔵 QR Screen - Pet name: ${widget.pet.name}');
+    print('🔵 QR Screen - Drive URL: ${widget.pet.driveUrl}');
+    print('🔵 QR Screen - QR Data: $qrData');
+    print('🔵 QR Screen - QR Data length: ${qrData.length} chars');
+    
+    if (widget.pet.driveUrl != null && widget.pet.driveUrl!.isNotEmpty) {
+      print('🟢 QR contiene URL de Drive!');
+    } else {
+      print('🔴 QR NO tiene URL de Drive - mostrará texto plano');
+    }
+  }
+
   Future<void> _shareQR() async {
     setState(() => _isSharing = true);
 
