@@ -62,7 +62,7 @@ class _FormScreenState extends State<FormScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al seleccionar imagen: \')),
+        SnackBar(content: Text('Error al seleccionar imagen: $e')),
       );
     }
   }
@@ -134,7 +134,7 @@ class _FormScreenState extends State<FormScreen> {
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error: \'),
+          content: Text('Error: $e'),
           backgroundColor: AppColors.error,
           duration: const Duration(seconds: 5),
         ),
