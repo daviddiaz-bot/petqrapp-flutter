@@ -78,6 +78,28 @@ class _FormScreenState extends State<FormScreen> {
       final petId = const Uuid().v4();
       String? webUrl;
 
+      // Mostrar diálogo de progreso
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Creando página web...'),
+              SizedBox(height: 8),
+              Text(
+                'Subiendo a GitHub Gist',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+      );
+
       // Crear página web con GitHub Gist
       try {
         print('🔵 Creando página web...');
@@ -98,25 +120,43 @@ class _FormScreenState extends State<FormScreen> {
           photoFile: _selectedImage,
         );
         
+        // Cerrar diálogo de progreso
+        if (!mounted) return;
+        Navigator.pop(context);
+        
         if (webUrl != null && webUrl.isNotEmpty) {
           print('🟢 Página web creada: $webUrl');
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('✅ Página web generada'),
+              content: Text('✅ Página web generada exitosamente'),
               backgroundColor: Colors.green,
               duration: Duration(seconds: 2),
+            ),
+          );
+        } else {
+          print('⚠️ URL vacía - usando texto plano');
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('⚠️ No se pudo crear página web - QR tendrá texto plano'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 3),
             ),
           );
         }
       } catch (error) {
         print('🔴 Error creando página: $error');
+        // Cerrar diálogo de progreso
+        if (mounted) {
+          Navigator.of(context, rootNavigator: true).pop();
+        }
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('⚠️ Error: ${error.toString()}'),
-            backgroundColor: Colors.orange,
-            duration: Duration(seconds: 3),
+            content: Text('⚠️ Error al crear página: ${error.toString()}'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 4),
           ),
         );
       }

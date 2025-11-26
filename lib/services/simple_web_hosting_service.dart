@@ -57,6 +57,9 @@ class SimpleWebHostingService {
     required String description,
   }) async {
     try {
+      print('📤 [Gist] Subiendo archivo: $filename');
+      print('📤 [Gist] Tamaño contenido: ${content.length} chars');
+      
       final response = await http.post(
         Uri.parse('https://api.github.com/gists'),
         headers: {
@@ -72,6 +75,8 @@ class SimpleWebHostingService {
         }),
       );
       
+      print('📥 [Gist] Status code: ${response.statusCode}');
+      
       if (response.statusCode == 201) {
         final data = json.decode(response.body);
         // final gistId = data['id']; // No usado
@@ -79,14 +84,18 @@ class SimpleWebHostingService {
         final firstFile = files.keys.first;
         final rawUrl = files[firstFile]['raw_url'];
         
+        final finalUrl = 'https://htmlpreview.github.io/?$rawUrl';
+        print('✅ [Gist] URL generada: $finalUrl');
+        
         // Usar servicio de rendering HTML
-        return 'https://htmlpreview.github.io/?$rawUrl';
+        return finalUrl;
       }
       
       print('⚠️ [Gist] Error ${response.statusCode}: ${response.body}');
       return null;
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('❌ [Gist] Excepción: $e');
+      print('❌ [Gist] Stack: $stackTrace');
       return null;
     }
   }
