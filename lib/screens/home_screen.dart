@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../utils/app_colors.dart';
 import '../services/pet_storage_service.dart';
+import '../services/google_drive_service.dart';
 import '../models/pet.dart';
 import 'form_screen.dart';
 import 'qr_screen.dart';
@@ -14,6 +15,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final PetStorageService _storageService = PetStorageService();
+    final GoogleDriveService _driveService = GoogleDriveService();
   List<Pet> _pets = [];
   bool _isLoading = true;
 
@@ -147,6 +149,18 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             },
             onDismissed: (direction) async {
+                            // Eliminar de Drive si tiene URL
+                            if (pet.driveUrl != null && pet.driveUrl!.isNotEmpty) {
+                              try {
+                                print('🔵 Eliminando de Google Drive: ${pet.driveUrl}');
+                                await _driveService.deleteFile(pet.driveUrl!);
+                                print('🟢 Archivo eliminado de Drive');
+                              } catch (e) {
+                                print('⚠️ Error al eliminar de Drive: $e');
+                              }
+                            }
+              
+                            // Eliminar del storage local
               await _storageService.deletePet(pet.id);
               setState(() => _pets.removeAt(index));
               if (!mounted) return;

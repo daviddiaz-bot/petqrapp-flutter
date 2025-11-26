@@ -374,6 +374,45 @@ class GoogleDriveService {
       return null;
     }
   }
+
+    // Eliminar archivo HTML alojado en Drive a partir de la URL almacenada
+    Future<bool> deleteFile(String driveUrl) async {
+      try {
+        // Extraer ID del archivo desde la URL (puede venir con htmlpreview)
+        // Formatos posibles contienen id=FILE_ID
+        String? fileId;
+        if (driveUrl.contains('id=')) {
+          final idIndex = driveUrl.indexOf('id=') + 3;
+          final ampIndex = driveUrl.indexOf('&', idIndex);
+          fileId = ampIndex == -1 ? driveUrl.substring(idIndex) : driveUrl.substring(idIndex, ampIndex);
+        }
+        if (fileId == null || fileId.isEmpty) {
+          print('⚠️ No se pudo extraer el ID de la URL para deleteFile');
+          return false;
+        }
+        print('🔵 Eliminando archivo Drive ID: $fileId');
+
+        // Asegurar sesión
+        if (_currentUser == null) {
+          await _googleSignIn.signInSilently();
+          _currentUser = _googleSignIn.currentUser;
+        }
+        if (_currentUser == null) {
+          print('⚠️ Usuario no autenticado, no se elimina de Drive');
+          return false;
+        }
+
+        final authHeaders = await _currentUser!.authHeaders;
+        final client = GoogleAuthClient(authHeaders);
+        final api = drive.DriveApi(client);
+        await api.files.delete(fileId);
+        print('🟢 Archivo eliminado correctamente de Drive');
+        return true;
+      } catch (e) {
+        print('❌ Error eliminando archivo de Drive: $e');
+        return false;
+      }
+    }
 }
 
 class GoogleAuthClient extends http.BaseClient {
