@@ -8,6 +8,7 @@ class Pet {
   final String ownerPhone;
   final String ownerAddress;
   final String? photoPath;
+  final String? driveUrl;  // URL del archivo en Drive
   final DateTime registeredAt;
 
   Pet({
@@ -20,6 +21,7 @@ class Pet {
     required this.ownerPhone,
     required this.ownerAddress,
     this.photoPath,
+    this.driveUrl,
     required this.registeredAt,
   });
 
@@ -33,6 +35,7 @@ class Pet {
     'ownerPhone': ownerPhone,
     'ownerAddress': ownerAddress,
     'photoPath': photoPath,
+    'driveUrl': driveUrl,
     'registeredAt': registeredAt.toIso8601String(),
   };
 
@@ -46,11 +49,15 @@ class Pet {
     ownerPhone: json['ownerPhone'],
     ownerAddress: json['ownerAddress'],
     photoPath: json['photoPath'],
+    driveUrl: json['driveUrl'],
     registeredAt: DateTime.parse(json['registeredAt']),
   );
 
   String toQRData() {
-    // URL que muestra la info completa de la mascota
-    return 'https://petqrapp.web.app/pet/';
+    // Si tiene URL de Drive, usa esa; si no, muestra info básica
+    if (driveUrl != null && driveUrl!.isNotEmpty) {
+      return driveUrl!;
+    }
+    return 'PET:|OWNER:|PHONE:';
   }
 }

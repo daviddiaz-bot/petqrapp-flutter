@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/pet.dart';
 import '../services/pet_storage_service.dart';
+import '../services/google_drive_service.dart';
 import '../utils/validators.dart';
 import '../utils/app_colors.dart';
 import 'qr_screen.dart';
@@ -18,6 +19,7 @@ class FormScreen extends StatefulWidget {
 class _FormScreenState extends State<FormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _storageService = PetStorageService();
+  final _driveService = GoogleDriveService();
   final _imagePicker = ImagePicker();
   
   final _nameController = TextEditingController();
@@ -60,7 +62,7 @@ class _FormScreenState extends State<FormScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al seleccionar imagen: $e')),
+        SnackBar(content: Text('Error al seleccionar imagen: \')),
       );
     }
   }
@@ -72,29 +74,72 @@ class _FormScreenState extends State<FormScreen> {
 
     setState(() => _isLoading = true);
 
-    final pet = Pet(
-      id: const Uuid().v4(),
-      name: _nameController.text.trim(),
-      breed: _breedController.text.trim(),
-      age: _ageController.text.trim(),
-      color: _colorController.text.trim(),
-      ownerName: _ownerNameController.text.trim(),
-      ownerPhone: _ownerPhoneController.text.trim(),
-      ownerAddress: _ownerAddressController.text.trim(),
-      registeredAt: DateTime.now(),
-    );
+    try {
+      final petId = const Uuid().v4();
 
-    await _storageService.savePet(pet);
+      // Iniciar sesión en Google Drive
+      final signedIn = await _driveService.signIn();
+      if (!signedIn) {
+        throw Exception('No se pudo iniciar sesión en Google Drive');
+      }
 
-    setState(() => _isLoading = false);
+      // Subir a Drive
+      final driveUrl = await _driveService.uploadPetData(
+        petId: petId,
+        petName: _nameController.text.trim(),
+        petData: {
+          'name': _nameController.text.trim(),
+          'breed': _breedController.text.trim(),
+          'age': _ageController.text.trim(),
+          'color': _colorController.text.trim(),
+          'ownerName': _ownerNameController.text.trim(),
+          'ownerPhone': _ownerPhoneController.text.trim(),
+          'ownerAddress': _ownerAddressController.text.trim(),
+        },
+        photoFile: _selectedImage,
+      );
 
-    if (!mounted) return;
+      if (driveUrl == null) {
+        throw Exception('Error al subir a Google Drive');
+      }
 
-    // Navegar a la pantalla QR
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => QRScreen(pet: pet)),
-    );
+      // Crear mascota con URL de Drive
+      final pet = Pet(
+        id: petId,
+        name: _nameController.text.trim(),
+        breed: _breedController.text.trim(),
+        age: _ageController.text.trim(),
+        color: _colorController.text.trim(),
+        ownerName: _ownerNameController.text.trim(),
+        ownerPhone: _ownerPhoneController.text.trim(),
+        ownerAddress: _ownerAddressController.text.trim(),
+        photoPath: _selectedImage?.path,
+        driveUrl: driveUrl,
+        registeredAt: DateTime.now(),
+      );
+
+      await _storageService.savePet(pet);
+
+      setState(() => _isLoading = false);
+
+      if (!mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => QRScreen(pet: pet)),
+      );
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (!mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: \'),
+          backgroundColor: AppColors.error,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    }
   }
 
   @override
@@ -107,7 +152,21 @@ class _FormScreenState extends State<FormScreen> {
         foregroundColor: Colors.white,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 20),
+                  const Text('Subiendo a Google Drive...'),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Esto puede tardar unos segundos',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                  ),
+                ],
+              ),
+            )
           : SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Form(
@@ -168,8 +227,8 @@ class _FormScreenState extends State<FormScreen> {
                     const SizedBox(height: 32),
                     ElevatedButton.icon(
                       onPressed: _submitForm,
-                      icon: const Icon(Icons.qr_code_2),
-                      label: const Text('Generar Código QR'),
+                      icon: const Icon(Icons.cloud_upload),
+                      label: const Text('Subir a Drive y Generar QR'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.secondary,
                         foregroundColor: Colors.white,
@@ -179,6 +238,12 @@ class _FormScreenState extends State<FormScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'ℹ️ Los datos se guardarán en tu Google Drive',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12),
                     ),
                   ],
                 ),
@@ -197,6 +262,40 @@ class _FormScreenState extends State<FormScreen> {
           fontWeight: FontWeight.bold,
           color: AppColors.textPrimary,
         ),
+      ),
+    );
+  }
+
+  Widget _buildImagePicker() {
+    return GestureDetector(
+      onTap: _pickImage,
+      child: Container(
+        height: 200,
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[400]!),
+        ),
+        child: _selectedImage == null
+            ? Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.add_photo_alternate, size: 64, color: Colors.grey[600]),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Toca para agregar foto de la mascota',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                ],
+              )
+            : ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.file(
+                  _selectedImage!,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                ),
+              ),
       ),
     );
   }
@@ -238,40 +337,6 @@ class _FormScreenState extends State<FormScreen> {
             borderSide: const BorderSide(color: AppColors.error),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildImagePicker() {
-    return GestureDetector(
-      onTap: _pickImage,
-      child: Container(
-        height: 200,
-        decoration: BoxDecoration(
-          color: Colors.grey[200],
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey[400]!),
-        ),
-        child: _selectedImage == null
-            ? Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.add_photo_alternate, size: 64, color: Colors.grey[600]),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Toca para agregar foto de la mascota',
-                    style: TextStyle(color: Colors.grey[600]),
-                  ),
-                ],
-              )
-            : ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.file(
-                  _selectedImage!,
-                  fit: BoxFit.cover,
-                  width: double.infinity,
-                ),
-              ),
       ),
     );
   }
