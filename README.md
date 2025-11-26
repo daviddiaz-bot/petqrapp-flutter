@@ -1,40 +1,42 @@
 # 🐾 PetQRApp - Flutter
 
-Aplicación móvil para generar códigos QR de mascotas.
+Generador de códigos QR para mascotas con almacenamiento en Google Drive.
 
-## 🚀 Instalación del APK
+## 📱 Características
 
-**Descarga directa del APK:** [Próximamente - Build en proceso]
+- Registro de mascotas con foto
+- Generación de código QR
+- Almacenamiento seguro en Google Drive del dueño
+- Página web automática con info de la mascota
+- Compartir QR por WhatsApp/Email
 
-## 💡 Uso
+## 🚀 Instalación
 
-1. Registrar mascota con datos completos
-2. Generar código QR automáticamente
-3. Compartir QR por WhatsApp/Email
-4. Ver lista de mascotas registradas
+1. Descargar APK desde GitHub Actions
+2. Instalar en Android
+3. Iniciar sesión con Google al registrar primera mascota
 
-## 🔨 Para Desarrolladores
+## 📦 Estructura
 
-### Ejecutar en modo desarrollo:
+```
+petqrapp_flutter/
+├── android/          # Proyecto Android nativo
+├── lib/              # Código fuente Flutter
+│   ├── models/       # Modelos de datos
+│   ├── screens/      # Pantallas de la app
+│   ├── services/     # Servicios (Drive, Storage)
+│   └── utils/        # Utilidades y validadores
+├── .github/          # GitHub Actions workflows
+└── pubspec.yaml      # Dependencias del proyecto
+```
+
+## 🔧 Desarrollo
+
 ```bash
 flutter pub get
 flutter run
 ```
 
-### Construir APK:
-```bash
-flutter build apk --release
-```
+## 📥 APK
 
-APK en: `build/app/outputs/flutter-apk/app-release.apk`
-
-## 📦 Tecnologías
-
-- Flutter 3.24.5
-- Dart 3.5.4
-- qr_flutter (Generación QR)
-- share_plus (Compartir)
-- shared_preferences (Almacenamiento)
-
----
-**✅ Sin errores de TurboModules - 100% funcional**
+Descarga desde: https://github.com/daviddiaz-bot/petqrapp-flutter/actions
