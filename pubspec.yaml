@@ -1,0 +1,25 @@
+name: petqrapp_flutter
+description: "PetQRApp - Generador de códigos QR para mascotas"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  qr_flutter: ^4.1.0
+  share_plus: ^7.2.1
+  shared_preferences: ^2.2.2
+  path_provider: ^2.1.1
+  uuid: ^4.5.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
