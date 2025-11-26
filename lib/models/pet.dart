@@ -8,7 +8,7 @@ class Pet {
   final String ownerPhone;
   final String ownerAddress;
   final String? photoPath;
-  final String? driveUrl;  // URL del archivo en Drive
+  final String? driveUrl;
   final DateTime registeredAt;
 
   Pet({
@@ -54,10 +54,9 @@ class Pet {
   );
 
   String toQRData() {
-    // Si tiene URL de Drive, usa esa; si no, muestra info básica
     if (driveUrl != null && driveUrl!.isNotEmpty) {
       return driveUrl!;
     }
-    return 'PET:|OWNER:|PHONE:';
+    return 'Mascota: $name\nRaza: $breed\nEdad: $age\nDueno: $ownerName\nTelefono: $ownerPhone\nDireccion: $ownerAddress';
   }
 }
