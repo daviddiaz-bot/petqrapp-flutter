@@ -77,19 +77,23 @@ class SimpleWebHostingService {
       
       print('📥 [Gist] Status code: ${response.statusCode}');
       
-      if (response.statusCode == 201) {
-        final data = json.decode(response.body);
-        // final gistId = data['id']; // No usado
-        final files = data['files'] as Map<String, dynamic>;
-        final firstFile = files.keys.first;
-        final rawUrl = files[firstFile]['raw_url'];
-        
-        final finalUrl = 'https://htmlpreview.github.io/?$rawUrl';
-        print('✅ [Gist] URL generada: $finalUrl');
-        
-        // Usar servicio de rendering HTML
-        return finalUrl;
-      }
+            if (response.statusCode == 201) {
+                final data = json.decode(response.body);
+                final files = data['files'] as Map<String, dynamic>;
+                final firstFile = files.keys.first;
+                final rawUrl = files[firstFile]['raw_url'];
+                final htmlUrl = data['html_url'];
+
+                // Preferir htmlpreview (rápido), con fallback a la URL del Gist
+                final previewUrl = 'https://htmlpreview.github.io/?$rawUrl';
+                print('✅ [Gist] RAW URL: $rawUrl');
+                print('✅ [Gist] HTML URL: $htmlUrl');
+                print('✅ [Gist] Preview URL: $previewUrl');
+
+                // Algunos entornos muestran 404 temporal hasta que el archivo propaga.
+                // Devolvemos el preview y, si el cliente detecta 404, puede abrir htmlUrl.
+                return previewUrl;
+            }
       
       print('⚠️ [Gist] Error ${response.statusCode}: ${response.body}');
       return null;
