@@ -7,6 +7,7 @@ class Pet {
   final String ownerName;
   final String ownerPhone;
   final String ownerAddress;
+  final String? photoPath;
   final DateTime registeredAt;
 
   Pet({
@@ -18,6 +19,7 @@ class Pet {
     required this.ownerName,
     required this.ownerPhone,
     required this.ownerAddress,
+    this.photoPath,
     required this.registeredAt,
   });
 
@@ -30,6 +32,7 @@ class Pet {
     'ownerName': ownerName,
     'ownerPhone': ownerPhone,
     'ownerAddress': ownerAddress,
+    'photoPath': photoPath,
     'registeredAt': registeredAt.toIso8601String(),
   };
 
@@ -42,10 +45,12 @@ class Pet {
     ownerName: json['ownerName'],
     ownerPhone: json['ownerPhone'],
     ownerAddress: json['ownerAddress'],
+    photoPath: json['photoPath'],
     registeredAt: DateTime.parse(json['registeredAt']),
   );
 
   String toQRData() {
-    return 'PET:|BREED:|AGE:|COLOR:|OWNER:|PHONE:|ADDRESS:';
+    // URL que muestra la info completa de la mascota
+    return 'https://petqrapp.web.app/pet/';
   }
 }

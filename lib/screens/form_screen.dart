@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
+import 'package:image_picker/image_picker.dart';
 import '../models/pet.dart';
 import '../services/pet_storage_service.dart';
 import '../utils/validators.dart';
@@ -16,6 +18,7 @@ class FormScreen extends StatefulWidget {
 class _FormScreenState extends State<FormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _storageService = PetStorageService();
+  final _imagePicker = ImagePicker();
   
   final _nameController = TextEditingController();
   final _breedController = TextEditingController();
@@ -25,6 +28,7 @@ class _FormScreenState extends State<FormScreen> {
   final _ownerPhoneController = TextEditingController();
   final _ownerAddressController = TextEditingController();
   
+  File? _selectedImage;
   bool _isLoading = false;
 
   @override
@@ -37,6 +41,28 @@ class _FormScreenState extends State<FormScreen> {
     _ownerPhoneController.dispose();
     _ownerAddressController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final XFile? image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
+      
+      if (image != null) {
+        setState(() {
+          _selectedImage = File(image.path);
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al seleccionar imagen: $e')),
+      );
+    }
   }
 
   Future<void> _submitForm() async {
@@ -90,6 +116,8 @@ class _FormScreenState extends State<FormScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _buildSectionTitle('Datos de la Mascota'),
+                    _buildImagePicker(),
+                    const SizedBox(height: 16),
                     _buildTextField(
                       controller: _nameController,
                       label: 'Nombre de la mascota',
@@ -210,6 +238,40 @@ class _FormScreenState extends State<FormScreen> {
             borderSide: const BorderSide(color: AppColors.error),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildImagePicker() {
+    return GestureDetector(
+      onTap: _pickImage,
+      child: Container(
+        height: 200,
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[400]!),
+        ),
+        child: _selectedImage == null
+            ? Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.add_photo_alternate, size: 64, color: Colors.grey[600]),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Toca para agregar foto de la mascota',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                ],
+              )
+            : ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.file(
+                  _selectedImage!,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                ),
+              ),
       ),
     );
   }
