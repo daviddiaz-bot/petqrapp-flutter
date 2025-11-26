@@ -29,7 +29,6 @@ class _FormScreenState extends State<FormScreen> {
   final _ownerNameController = TextEditingController();
   final _ownerPhoneController = TextEditingController();
   final _ownerAddressController = TextEditingController();
-  final _ownerEmailController = TextEditingController();
   
   File? _selectedImage;
   bool _isLoading = false;
@@ -43,7 +42,6 @@ class _FormScreenState extends State<FormScreen> {
     _ownerNameController.dispose();
     _ownerPhoneController.dispose();
     _ownerAddressController.dispose();
-    _ownerEmailController.dispose();
     super.dispose();
   }
 
@@ -85,7 +83,7 @@ class _FormScreenState extends State<FormScreen> {
         print('🔵 Creando página web...');
         
         webUrl = await _webService.createPetPage(
-          ownerEmail: _ownerEmailController.text.trim(),
+          ownerEmail: _ownerNameController.text.trim(),
           petId: petId,
           petName: _nameController.text.trim(),
           petData: {
@@ -96,7 +94,6 @@ class _FormScreenState extends State<FormScreen> {
             'ownerName': _ownerNameController.text.trim(),
             'ownerPhone': _ownerPhoneController.text.trim(),
             'ownerAddress': _ownerAddressController.text.trim(),
-            'ownerEmail': _ownerEmailController.text.trim(),
           },
           photoFile: _selectedImage,
         );
@@ -244,13 +241,6 @@ class _FormScreenState extends State<FormScreen> {
                       icon: Icons.home,
                       maxLines: 2,
                       validator: (v) => Validators.validateRequired(v, 'La dirección'),
-                    ),
-                    _buildTextField(
-                      controller: _ownerEmailController,
-                      label: 'Correo Gmail',
-                      icon: Icons.email,
-                      keyboardType: TextInputType.emailAddress,
-                      validator: Validators.validateEmail,
                     ),
                     const SizedBox(height: 32),
                     ElevatedButton.icon(
