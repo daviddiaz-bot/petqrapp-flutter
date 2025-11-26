@@ -86,7 +86,7 @@ class GoogleDriveService {
           uploadedPhoto.id!,
         );
 
-        photoUrl = 'https://lh3.googleusercontent.com/d/${uploadedPhoto.id}';
+        photoUrl = 'https://drive.usercontent.google.com/download?id=${uploadedPhoto.id}&export=view';
       }
 
       // Crear archivo HTML con la información
