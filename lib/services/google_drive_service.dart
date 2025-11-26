@@ -18,20 +18,28 @@ class GoogleDriveService {
 
   Future<bool> signIn() async {
     try {
-      print('🔵 Intentando login con Google...');
+      print('🔵 [Drive] Intentando login con Google...');
       _currentUser = await _googleSignIn.signIn();
-      
+
       if (_currentUser != null) {
         _userEmail = _currentUser!.email;
-        print('🟢 Login exitoso: $_userEmail');
+        print('🟢 [Drive] Login exitoso: $_userEmail');
         return true;
       }
-      
-      print('🔴 Login cancelado por el usuario');
+
+      print('🔴 [Drive] Login cancelado por el usuario');
       return false;
     } catch (error) {
-      print('🔴 Error en login: $error');
-      print('🔴 Tipo de error: ${error.runtimeType}');
+      print('🔴 [Drive] Error en login: $error');
+      print('🔴 [Drive] Tipo de error: ${error.runtimeType}');
+      if (error is Exception) {
+        final msg = error.toString();
+        if (msg.contains('DEVELOPER_ERROR')) {
+          print('⚠️ [Drive] DEVELOPER_ERROR: Falta configurar SHA-1 y google-services.json en Firebase/Google Cloud.');
+        } else if (msg.contains('API_NOT_CONNECTED')) {
+          print('⚠️ [Drive] API_NOT_CONNECTED: Revisa conexión o permisos de Drive API habilitados.');
+        }
+      }
       return false;
     }
   }
@@ -52,42 +60,43 @@ class GoogleDriveService {
     File? photoFile,
   }) async {
     if (_currentUser == null) {
-      print('🔴 ERROR: Usuario no autenticado');
-      throw Exception('Usuario no autenticado. Por favor inicia sesión primero.');
+      print('🔴 [Drive] ERROR: Usuario no autenticado antes de uploadPetData');
+      throw Exception('Usuario no autenticado. Inicia sesión en Google primero.');
     }
 
     try {
-      print('🔵 Iniciando upload a Drive...');
-      print('🔵 Usuario: $_userEmail');
+      print('🔵 [Drive] Iniciando upload a Drive...');
+      print('🔵 [Drive] Usuario: $_userEmail');
       
       final authHeaders = await _currentUser!.authHeaders;
-      print('🔵 Headers obtenidos: ${authHeaders.keys.join(', ')}');
+      print('🔵 [Drive] Headers obtenidos: ${authHeaders.keys.join(', ')}');
       
       final authenticateClient = GoogleAuthClient(authHeaders);
       final driveApi = drive.DriveApi(authenticateClient);
 
       // Crear carpeta "PetQRApp" en el Drive del usuario
-      print('🔵 Buscando carpeta PetQRApp...');
+      print('🔵 [Drive] Buscando carpeta PetQRApp...');
       final folderQuery = "name='PetQRApp' and mimeType='application/vnd.google-apps.folder' and trashed=false";
       final folderList = await driveApi.files.list(q: folderQuery);
       
       String? folderId;
       if (folderList.files != null && folderList.files!.isNotEmpty) {
         folderId = folderList.files!.first.id;
-        print('🟢 Carpeta encontrada: $folderId');
+        print('🟢 [Drive] Carpeta encontrada: $folderId');
       } else {
-        print('🔵 Creando carpeta PetQRApp...');
+        print('🔵 [Drive] Creando carpeta PetQRApp...');
         final folder = drive.File()
           ..name = 'PetQRApp'
           ..mimeType = 'application/vnd.google-apps.folder';
         final createdFolder = await driveApi.files.create(folder);
         folderId = createdFolder.id;
-        print('🟢 Carpeta creada: $folderId');
+        print('🟢 [Drive] Carpeta creada: $folderId');
       }
 
       // Subir la foto y obtener URL pública
       String? photoId;
       if (photoFile != null) {
+        print('🔵 [Drive] Subiendo foto...');
         final photoMetadata = drive.File()
           ..name = 'photo_${petId}.jpg'
           ..parents = [folderId!];
@@ -111,7 +120,7 @@ class GoogleDriveService {
         );
         
         photoId = uploadedPhoto.id;
-        print('Photo uploaded: $photoId');
+        print('🟢 [Drive] Foto subida ID: $photoId');
       }
 
       // Convertir foto a base64 para respaldo
@@ -363,14 +372,20 @@ class GoogleDriveService {
       final googleDriveRawUrl = 'https://drive.google.com/uc?export=download&id=${uploadedHtml.id}';
       final webViewUrl = 'https://htmlpreview.github.io/?$googleDriveRawUrl';
       
-      print('✅ Pet page created:');
-      print('   Drive ID: ${uploadedHtml.id}');
-      print('   Raw URL: $googleDriveRawUrl');
-      print('   Preview URL: $webViewUrl');
+      print('✅ [Drive] Página HTML creada:');
+      print('   ➤ Drive ID: ${uploadedHtml.id}');
+      print('   ➤ Raw URL: $googleDriveRawUrl');
+      print('   ➤ Preview URL (QR): $webViewUrl');
       
       return webViewUrl;
     } catch (e) {
-      print('❌ Error uploading to Drive: $e');
+      print('❌ [Drive] Error subiendo a Drive: $e');
+      if (e.toString().contains('403')) {
+        print('⚠️ [Drive] 403 Forbidden: Verifica que Drive API esté habilitada y los scopes estén en la pantalla de consentimiento.');
+      }
+      if (e.toString().contains('401')) {
+        print('⚠️ [Drive] 401 Unauthorized: Revisa configuración de OAuth y google-services.json.');
+      }
       return null;
     }
   }
