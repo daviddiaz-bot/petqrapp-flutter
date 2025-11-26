@@ -250,7 +250,7 @@ class GoogleDriveService {
         uploadedHtml.id!,
       );
 
-      final driveUrl = 'https://drive.google.com/file/d/${uploadedHtml.id}/view';
+      final driveUrl = 'https://drive.google.com/uc?export=view&id=${uploadedHtml.id}';
       print('HTML uploaded successfully: $driveUrl');
       
       return driveUrl;
