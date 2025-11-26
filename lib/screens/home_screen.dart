@@ -113,44 +113,89 @@ class _HomeScreenState extends State<HomeScreen> {
         itemCount: _pets.length,
         itemBuilder: (context, index) {
           final pet = _pets[index];
-          return Card(
-            margin: const EdgeInsets.only(bottom: 12),
-            elevation: 2,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+          return Dismissible(
+            key: Key(pet.id),
+            direction: DismissDirection.endToStart,
+            background: Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: AppColors.error,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.only(right: 20),
+              child: const Icon(Icons.delete, color: Colors.white, size: 32),
             ),
-            child: ListTile(
-              contentPadding: const EdgeInsets.all(16),
-              leading: CircleAvatar(
-                backgroundColor: AppColors.secondary,
-                radius: 30,
-                child: Text(
-                  pet.name[0].toUpperCase(),
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+            confirmDismiss: (direction) async {
+              return await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Eliminar Mascota'),
+                  content: Text('¿Estás seguro de eliminar a ${pet.name}?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancelar'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      style: TextButton.styleFrom(foregroundColor: AppColors.error),
+                      child: const Text('Eliminar'),
+                    ),
+                  ],
+                ),
+              );
+            },
+            onDismissed: (direction) async {
+              await _storageService.deletePet(pet.id);
+              setState(() => _pets.removeAt(index));
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('${pet.name} ha sido eliminado'),
+                  backgroundColor: AppColors.success,
+                ),
+              );
+            },
+            child: Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ListTile(
+                contentPadding: const EdgeInsets.all(16),
+                leading: CircleAvatar(
+                  backgroundColor: AppColors.secondary,
+                  radius: 30,
+                  child: Text(
+                    pet.name[0].toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
-              ),
-              title: Text(
-                pet.name,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                title: Text(
+                  pet.name,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 4),
+                    Text('🎨 ${pet.breed}'),
+                    Text('📅 ${pet.age} años'),
+                    Text('👤 ${pet.ownerName}'),
+                  ],
+                ),
+                trailing: const Icon(Icons.qr_code_2, size: 32, color: AppColors.primary),
+                onTap: () => _navigateToQR(pet),
               ),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 4),
-                  Text('🎨 ${pet.breed}'),
-                  Text('📅 ${pet.age} años'),
-                  Text('👤 ${pet.ownerName}'),
-                ],
-              ),
-              trailing: const Icon(Icons.qr_code_2, size: 32, color: AppColors.primary),
-              onTap: () => _navigateToQR(pet),
             ),
           );
         },

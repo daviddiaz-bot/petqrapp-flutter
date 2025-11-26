@@ -76,31 +76,37 @@ class _FormScreenState extends State<FormScreen> {
 
     try {
       final petId = const Uuid().v4();
+      String? driveUrl;
 
-      // Iniciar sesión en Google Drive
-      final signedIn = await _driveService.signIn();
-      if (!signedIn) {
-        throw Exception('No se pudo iniciar sesión en Google Drive');
-      }
-
-      // Subir a Drive
-      final driveUrl = await _driveService.uploadPetData(
-        petId: petId,
-        petName: _nameController.text.trim(),
-        petData: {
-          'name': _nameController.text.trim(),
-          'breed': _breedController.text.trim(),
-          'age': _ageController.text.trim(),
-          'color': _colorController.text.trim(),
-          'ownerName': _ownerNameController.text.trim(),
-          'ownerPhone': _ownerPhoneController.text.trim(),
-          'ownerAddress': _ownerAddressController.text.trim(),
-        },
-        photoFile: _selectedImage,
-      );
-
-      if (driveUrl == null) {
-        throw Exception('Error al subir a Google Drive');
+      // Intentar subir a Google Drive (opcional)
+      try {
+        final signedIn = await _driveService.signIn();
+        if (signedIn) {
+          driveUrl = await _driveService.uploadPetData(
+            petId: petId,
+            petName: _nameController.text.trim(),
+            petData: {
+              'name': _nameController.text.trim(),
+              'breed': _breedController.text.trim(),
+              'age': _ageController.text.trim(),
+              'color': _colorController.text.trim(),
+              'ownerName': _ownerNameController.text.trim(),
+              'ownerPhone': _ownerPhoneController.text.trim(),
+              'ownerAddress': _ownerAddressController.text.trim(),
+            },
+            photoFile: _selectedImage,
+          );
+        }
+      } catch (driveError) {
+        // Si falla Drive, continuar sin él
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Guardado localmente (Google Drive no disponible)'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
       }
 
       // Crear mascota con URL de Drive
