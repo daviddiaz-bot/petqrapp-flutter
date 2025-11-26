@@ -4,7 +4,7 @@ import 'package:uuid/uuid.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/pet.dart';
 import '../services/pet_storage_service.dart';
-import '../services/google_drive_service.dart';
+import '../services/simple_web_hosting_service.dart';
 import '../utils/validators.dart';
 import '../utils/app_colors.dart';
 import 'qr_screen.dart';
@@ -19,7 +19,7 @@ class FormScreen extends StatefulWidget {
 class _FormScreenState extends State<FormScreen> {
   final _formKey = GlobalKey<FormState>();
   final _storageService = PetStorageService();
-  final _driveService = GoogleDriveService();
+  final _webService = SimpleWebHostingService();
   final _imagePicker = ImagePicker();
   
   final _nameController = TextEditingController();
@@ -29,6 +29,7 @@ class _FormScreenState extends State<FormScreen> {
   final _ownerNameController = TextEditingController();
   final _ownerPhoneController = TextEditingController();
   final _ownerAddressController = TextEditingController();
+  final _ownerEmailController = TextEditingController();
   
   File? _selectedImage;
   bool _isLoading = false;
@@ -42,6 +43,7 @@ class _FormScreenState extends State<FormScreen> {
     _ownerNameController.dispose();
     _ownerPhoneController.dispose();
     _ownerAddressController.dispose();
+    _ownerEmailController.dispose();
     super.dispose();
   }
 
@@ -76,124 +78,53 @@ class _FormScreenState extends State<FormScreen> {
 
     try {
       final petId = const Uuid().v4();
-      String? driveUrl;
+      String? webUrl;
 
-      // Subir a Google Drive del usuario
+      // Crear página web con GitHub Gist
       try {
-        print('🔵 Iniciando sesión en Google Drive...');
+        print('🔵 Creando página web...');
         
-        // Mostrar diálogo de loading
-        if (!mounted) return;
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => AlertDialog(
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text('Conectando con tu Google Drive...'),
-                SizedBox(height: 8),
-                Text(
-                  'Por favor acepta los permisos',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
-            ),
-          ),
+        webUrl = await _webService.createPetPage(
+          ownerEmail: _ownerEmailController.text.trim(),
+          petId: petId,
+          petName: _nameController.text.trim(),
+          petData: {
+            'name': _nameController.text.trim(),
+            'breed': _breedController.text.trim(),
+            'age': _ageController.text.trim(),
+            'color': _colorController.text.trim(),
+            'ownerName': _ownerNameController.text.trim(),
+            'ownerPhone': _ownerPhoneController.text.trim(),
+            'ownerAddress': _ownerAddressController.text.trim(),
+            'ownerEmail': _ownerEmailController.text.trim(),
+          },
+          photoFile: _selectedImage,
         );
         
-        final signedIn = await _driveService.signIn();
-        
-        // Cerrar diálogo
-        if (!mounted) return;
-        Navigator.pop(context);
-        
-        if (signedIn) {
-          print('🟢 Login exitoso: ${_driveService.userEmail}');
-          
-          // Mostrar progreso de subida
-          if (!mounted) return;
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (context) => AlertDialog(
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Subiendo a tu Drive...'),
-                  SizedBox(height: 8),
-                  Text(
-                    'Creando página web de ${_nameController.text}',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                ],
-              ),
-            ),
-          );
-          
-          driveUrl = await _driveService.uploadPetData(
-            petId: petId,
-            petName: _nameController.text.trim(),
-            petData: {
-              'name': _nameController.text.trim(),
-              'breed': _breedController.text.trim(),
-              'age': _ageController.text.trim(),
-              'color': _colorController.text.trim(),
-              'ownerName': _ownerNameController.text.trim(),
-              'ownerPhone': _ownerPhoneController.text.trim(),
-              'ownerAddress': _ownerAddressController.text.trim(),
-            },
-            photoFile: _selectedImage,
-          );
-          
-          // Cerrar diálogo de progreso
-          if (!mounted) return;
-          Navigator.pop(context);
-          
-          if (driveUrl != null && driveUrl.isNotEmpty) {
-            print('🟢 URL de Drive obtenida: $driveUrl');
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('✅ Guardado en tu Google Drive'),
-                backgroundColor: Colors.green,
-                duration: Duration(seconds: 3),
-              ),
-            );
-          }
-        } else {
-          print('🔴 Login cancelado o falló');
+        if (webUrl != null && webUrl.isNotEmpty) {
+          print('🟢 Página web creada: $webUrl');
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('❌ No se pudo conectar con Google Drive'),
-              backgroundColor: Colors.red,
-              duration: Duration(seconds: 3),
+              content: Text('✅ Página web generada'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
             ),
           );
         }
       } catch (error) {
-        print('🔴 Error en Drive: $error');
-        // Cerrar cualquier diálogo abierto
-        if (mounted) {
-          Navigator.of(context, rootNavigator: true).pop();
-        }
+        print('🔴 Error creando página: $error');
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('⚠️ Error: ${error.toString()}'),
             backgroundColor: Colors.orange,
-            duration: Duration(seconds: 4),
+            duration: Duration(seconds: 3),
           ),
         );
       }
 
-      // Crear mascota con URL de Google Drive
-      print('🔵 Creando mascota con driveUrl: $driveUrl');
+      // Crear mascota con URL de la página web
       final pet = Pet(
         id: petId,
         name: _nameController.text.trim(),
@@ -204,14 +135,11 @@ class _FormScreenState extends State<FormScreen> {
         ownerPhone: _ownerPhoneController.text.trim(),
         ownerAddress: _ownerAddressController.text.trim(),
         photoPath: _selectedImage?.path,
-        driveUrl: driveUrl,  // URL del HTML en Google Drive del usuario
+        driveUrl: webUrl,  // URL de la página web
         registeredAt: DateTime.now(),
       );
 
-      print('🔵 Guardando mascota en storage local...');
       await _storageService.savePet(pet);
-      print('🟢 Mascota guardada exitosamente');
-      print('🔵 Pet object: ${pet.toJson()}');
 
       setState(() => _isLoading = false);
 
@@ -317,11 +245,18 @@ class _FormScreenState extends State<FormScreen> {
                       maxLines: 2,
                       validator: (v) => Validators.validateRequired(v, 'La dirección'),
                     ),
+                    _buildTextField(
+                      controller: _ownerEmailController,
+                      label: 'Correo Gmail',
+                      icon: Icons.email,
+                      keyboardType: TextInputType.emailAddress,
+                      validator: Validators.validateEmail,
+                    ),
                     const SizedBox(height: 32),
                     ElevatedButton.icon(
                       onPressed: _submitForm,
                       icon: const Icon(Icons.cloud_upload),
-                      label: const Text('Subir a Drive y Generar QR'),
+                      label: const Text('Generar QR'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.secondary,
                         foregroundColor: Colors.white,
