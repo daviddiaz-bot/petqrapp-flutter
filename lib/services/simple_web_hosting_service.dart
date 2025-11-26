@@ -84,15 +84,11 @@ class SimpleWebHostingService {
                 final rawUrl = files[firstFile]['raw_url'];
                 final htmlUrl = data['html_url'];
 
-                // Preferir htmlpreview (rápido), con fallback a la URL del Gist
-                final previewUrl = 'https://htmlpreview.github.io/?$rawUrl';
+                // Evitar 404 temporal del preview: usar la página oficial del Gist
+                // El QR apuntará a esta URL estable.
                 print('✅ [Gist] RAW URL: $rawUrl');
-                print('✅ [Gist] HTML URL: $htmlUrl');
-                print('✅ [Gist] Preview URL: $previewUrl');
-
-                // Algunos entornos muestran 404 temporal hasta que el archivo propaga.
-                // Devolvemos el preview y, si el cliente detecta 404, puede abrir htmlUrl.
-                return previewUrl;
+                print('✅ [Gist] HTML URL (stable): $htmlUrl');
+                return htmlUrl;
             }
       
       print('⚠️ [Gist] Error ${response.statusCode}: ${response.body}');
